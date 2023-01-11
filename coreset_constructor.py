@@ -2,6 +2,7 @@ from data import RepresentativePoint, Square
 from plotter import Plotter
 from sklearn.cluster import KMeans
 import math
+import dist
 
 
 class CoresetConstructor:
@@ -20,20 +21,12 @@ class CoresetConstructor:
         k_means = KMeans(n_clusters=self.k, n_init='auto').fit([p.coords for p in self.points])
         return k_means.cluster_centers_
 
-    @staticmethod
-    def dist_square(p1: [float,float], p2: [float,float]) -> float:
-        return (p2[0]-p1[0])**2 + (p2[1]-p1[1])**2
-
-    @staticmethod
-    def dist(p1: [float,float], p2: [float,float]) -> float:
-        return math.sqrt(CoresetConstructor.dist_square(p1, p2))
-
     def compute_cost(self, centers) -> float:
         total_cost = 0
         for point in self.points:
             costs = []
             for center in centers:
-                costs.append(self.dist_square(point.coords, center))
+                costs.append(dist.dist_square(point.coords, center))
             total_cost += min(costs)
         return total_cost
 
@@ -41,7 +34,7 @@ class CoresetConstructor:
         points_inside = []
         points_remaining = []
         for point in self.points:
-            distance = CoresetConstructor.dist(center, point.coords)
+            distance = dist.dist(center, point.coords)
             if distance <= radius:
                 points_inside.append(point)
             else:

@@ -1,15 +1,15 @@
-import math
 import os
+import dist
 from time import time
 import random
-import matplotlib.pyplot as plt
-from collections import namedtuple, defaultdict
+import math
 from sklearn.datasets import make_blobs
 from coreset_constructor import CoresetConstructor
 from data import RepresentativePoint
 from pyspark import SparkConf, SparkContext
 from plotter import Plotter
 from argparse import ArgumentParser
+from sklearn.cluster import KMeans
 
 def partition_points(points, num_partitions):
     random.shuffle(points)
@@ -37,6 +37,7 @@ def get_coreset_distributed(args, representative_points):
         iteration += 1
     final_points = partitions[0]
     print(f"Got {len(final_points)} representative points")
+    return final_points
 
 def create_subdirectory(args):
     base = args.output
@@ -49,6 +50,27 @@ def create_subdirectory(args):
     os.mkdir(base)
     args.output = base
 
+def coreset_k_means(args, coreset) -> list[tuple[float,float]]:
+    points = [p.coords for p in coreset]
+    weights = [p.weight for p in coreset]
+    k_means = KMeans(n_clusters=args.clusters, n_init='auto').fit(points, sample_weight=weights)
+    return k_means.cluster_centers_
+
+def initial_k_means(args, points) -> list[tuple[float,float]]:
+    k_means = KMeans(n_clusters=args.clusters, n_init='auto').fit(points)
+    return k_means.cluster_centers_
+
+def compute_cost(points: list[tuple[float,float]], centers: list[tuple[float,float]]) -> float:
+    total_cost = 0
+    for point in points:
+        min_cost = math.inf
+        for center in centers:
+            cost = dist.dist_square(point, center)
+            if cost < min_cost:
+                min_cost = cost
+        total_cost += min_cost
+    return total_cost
+
 def main():
     parser = ArgumentParser()
     parser.add_argument("--output", help="Output directory for images (default=./images)", type=str, default="./images/")
@@ -59,9 +81,24 @@ def main():
 
     args = parser.parse_args()
     create_subdirectory(args)
-    blob_points, cluster = make_blobs(n_samples=args.points, centers=args.clusters)
+    args.center_limit = [-100,100]
+    blob_points, cluster = make_blobs(n_samples=args.points, centers=args.clusters, center_box=args.center_limit, cluster_std=10)
+
+    normal_centers = initial_k_means(args, blob_points)
+    Plotter.plot_initial_clusters(args, blob_points, cluster)
+
     representative_points = [RepresentativePoint(coords=p, weight=1) for p in blob_points]
+    time_before = time()
     coreset = get_coreset_distributed(args, representative_points)
+    time_after = time()
+    print(f"Total time taken={time_after-time_before}s")
+
+    Plotter.plot_final(args, coreset)
+    coreset_centers = coreset_k_means(args, coreset)
+    coreset_cost = compute_cost(blob_points, coreset_centers)
+    normal_cost = compute_cost(blob_points, normal_centers)
+    print(f"Got coreset centers cost: {coreset_cost}")
+    print(f"Got normal centers: {normal_cost}")
 
 if __name__ == "__main__":
     main()
