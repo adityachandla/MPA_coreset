@@ -83,6 +83,7 @@ def main():
     create_subdirectory(args)
     args.center_limit = [-100,100]
     blob_points, cluster = make_blobs(n_samples=args.points, centers=args.clusters, center_box=args.center_limit, cluster_std=10)
+    result_file = open(args.output + "result.txt", "w+")
 
     normal_centers = initial_k_means(args, blob_points)
     Plotter.plot_initial_clusters(args, blob_points, cluster)
@@ -91,14 +92,16 @@ def main():
     time_before = time()
     coreset = get_coreset_distributed(args, representative_points)
     time_after = time()
-    print(f"Total time taken={time_after-time_before}s")
+    result_file.write(f"epsilon={args.epsilon} machines={args.machines} clusters={args.clusters} points={args.points}")
+    result_file.write(f"Total time taken={time_after-time_before}s\n")
 
     Plotter.plot_final(args, coreset)
     coreset_centers = coreset_k_means(args, coreset)
     coreset_cost = compute_cost(blob_points, coreset_centers)
     normal_cost = compute_cost(blob_points, normal_centers)
-    print(f"Got coreset centers cost: {coreset_cost}")
-    print(f"Got normal centers: {normal_cost}")
+    result_file.write(f"Got coreset centers cost: {coreset_cost}\n")
+    result_file.write(f"Cost of initial k-means++: {normal_cost}\n")
+    result_file.close()
 
 if __name__ == "__main__":
     main()
