@@ -1,5 +1,4 @@
 from data import RepresentativePoint, Square
-from plotter import Plotter
 from sklearn.cluster import KMeans
 import math
 import dist
@@ -14,7 +13,6 @@ class CoresetConstructor:
         self.k = args.clusters
         self.d = 2
         self.representative_points = list()
-        self.plotter = Plotter(args, CoresetConstructor._instance_id)
         CoresetConstructor._instance_id += 1
 
     def get_k_means_centers(self) -> list[list[float]]:
@@ -75,20 +73,7 @@ class CoresetConstructor:
             start_y += side_length
             start_x = center[0]-radius
 
-    def plot_repr_and_clear(self):
-        self.plotter.plot_representative_points(self.representative_points)
-        self.plotter.save_and_clear()
-
-    def add_annulus_to_plot(self, center, outer_radius, inner_radius):
-        # Plotting annulus
-        self.plotter.plot_circle(center, outer_radius)
-        if inner_radius > 0:
-            self.plotter.plot_circle(center, inner_radius)
-        
     def get_coreset(self) -> list[RepresentativePoint]:
-        self.plotter.plot_representative_points(self.points)
-        self.plotter.save_and_clear()
-
         n = len(self.points)
         centers = self.get_k_means_centers()
         cost_original = self.compute_cost(centers)
@@ -97,8 +82,6 @@ class CoresetConstructor:
         while len(self.points) > 0:
             for center in centers:
                 self.add_representatives(center, radius)
-                self.add_annulus_to_plot(center, prev_radius, radius)
-            self.plot_repr_and_clear()
             prev_radius = radius
             radius *= 2
         return self.representative_points
