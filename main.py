@@ -29,7 +29,9 @@ def get_coreset_distributed(args, representative_points):
     sc = SparkContext(conf=conf)
     iteration = 1
     while len(partitions) > 1:
-        rep_partitions = sc.parallelize(partitions).map(lambda partition : construct_coreset(partition, args)).collect()
+        rep_partitions = sc.parallelize(partitions, numSlices=args.machines)\
+                .map(lambda partition : construct_coreset(partition, args))\
+                .collect()
         for i in range(1, len(rep_partitions), 2):
             rep_partitions[i-1].extend(rep_partitions[i])
         partitions = rep_partitions[::2]
